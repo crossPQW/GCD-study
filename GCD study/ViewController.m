@@ -22,7 +22,14 @@
 //    [self dispatchBarrierDemo];
 //    [self testBackDownload];
 //    [self dispatchApplyDemo];
-    [self dispatchApplyDemo2:NO];
+//    [self dispatchApplyDemo2:NO];
+//    [self dispatchBlockDemo];
+//    [self dispatchBlockWait];
+//    [self dispatchBlockNotifyDemo];
+//    [self dispatchBlockCancel];
+//    [self dispatchGroupDemo];
+//    [self dispatchGroupDemo2];
+    [self dispatchGroupWait];
 }
 
 - (void)didReceiveMemoryWarning {
@@ -155,5 +162,175 @@
     }
 }
 
-#warning TODO 106行
+- (void)dispatchBlockDemo{
+    //第一种创建 方式
+    dispatch_queue_t concurrentQueue = dispatch_queue_create("com.starming.gcddemo.concurrentqueue",DISPATCH_QUEUE_CONCURRENT);
+
+    dispatch_block_t dispatchblock = dispatch_block_create(0, ^{
+        NSLog(@"this block");
+    });
+    dispatch_async(concurrentQueue, dispatchblock);
+    
+    dispatch_block_t block = dispatch_block_create_with_qos_class(0, QOS_CLASS_USER_INITIATED, -1, ^{
+        NSLog(@"other way to creat a block");
+    });
+    dispatch_async(concurrentQueue, block);
+}
+
+- (void)dispatchBlockWait{
+    dispatch_queue_t serialQueue = dispatch_queue_create("com.starming.gcddemo.serialqueue", DISPATCH_QUEUE_SERIAL);
+    dispatch_block_t block = dispatch_block_create(0, ^{
+        NSLog(@"a block start");
+        [NSThread sleepForTimeInterval:3];
+        NSLog(@"a block end");
+    });
+    dispatch_async(serialQueue, block);
+    
+    //设置为forever会等待前面执行完毕之后才执行后面的
+    dispatch_block_wait(block, DISPATCH_TIME_FOREVER);
+//    dispatch_block_wait(block, 5);//这样一开始就会执行,5秒无效
+    
+    NSLog(@"3 seconds ago");
+}
+
+- (void)dispatchBlockNotifyDemo{
+    dispatch_queue_t queue = dispatch_queue_create("dispatchblocknotify", DISPATCH_QUEUE_SERIAL);
+    
+    dispatch_block_t firstblock = dispatch_block_create(0, ^{
+        NSLog(@"first block start");
+        [NSThread sleepForTimeInterval:3];
+        NSLog(@"first block end");
+    });
+    
+    dispatch_async(queue, firstblock);
+    
+    dispatch_block_t second = dispatch_block_create(0, ^{
+        NSLog(@"second block start");
+    });
+    //first block 执行完毕之后再 串行队列执行第二个block
+    dispatch_block_notify(firstblock, queue, second);
+
+}
+
+- (void)dispatchBlockCancel{
+    dispatch_queue_t queue = dispatch_queue_create("dispatchBlockCancel", DISPATCH_QUEUE_SERIAL);
+    dispatch_block_t firstBlock = dispatch_block_create(0, ^{
+        NSLog(@"firstBlock start");
+        [NSThread sleepForTimeInterval:3];
+        NSLog(@"firstBlock end");
+    });
+    
+    dispatch_block_t secondBlock = dispatch_block_create(0, ^{
+        NSLog(@"second'");
+    });
+    
+    dispatch_async(queue, firstBlock);
+    dispatch_async(queue, secondBlock);
+    
+    //cancel掉第二个block,注意,这个api iOS才可用
+    dispatch_block_cancel(secondBlock);
+//    dispatch_block_cancel(firstBlock);
+}
+
+- (void)dispatchGroupDemo{
+    dispatch_queue_t concurrentQueue = dispatch_queue_create("dispatchGroupQueue", DISPATCH_QUEUE_CONCURRENT);
+    dispatch_group_t group = dispatch_group_create();
+    
+    dispatch_group_async(group, concurrentQueue, ^{
+        [NSThread sleepForTimeInterval:2];
+        NSLog(@"1");
+    });
+    dispatch_group_async(group, concurrentQueue, ^{
+        [NSThread sleepForTimeInterval:2];
+
+        NSLog(@"2");
+    });
+    dispatch_group_async(group, concurrentQueue, ^{
+        [NSThread sleepForTimeInterval:2];
+
+        NSLog(@"3");
+    });
+    dispatch_group_async(group, concurrentQueue, ^{
+        [NSThread sleepForTimeInterval:2];
+
+        NSLog(@"4");
+    });
+    
+    //上面所有任务执行完毕之后才会执行后面这个任务
+    //这玩意会阻塞主线程
+    dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
+    NSLog(@"go on");
+}
+
+- (void)dispatchGroupDemo2{
+    dispatch_queue_t queue = dispatch_queue_create("dispatchGroupDemo2", DISPATCH_QUEUE_CONCURRENT);
+    dispatch_group_t group = dispatch_group_create();
+    dispatch_group_async(group, queue, ^{
+        [NSThread sleepForTimeInterval:3];
+        NSLog(@"1");
+    });
+    dispatch_group_async(group, queue, ^{
+        NSLog(@"2");
+    });
+    dispatch_group_async(group, queue, ^{
+        NSLog(@"3");
+    });
+    
+    dispatch_group_notify(group, dispatch_get_main_queue(), ^{
+        NSLog(@"end");
+    });
+    NSLog(@"go on");
+    
+    //这时候可以看到end 永远最后执行,永远在其他队列执行完毕之后再执行
+}
+
+- (void)dispatchGroupWait{
+    dispatch_queue_t queue = dispatch_queue_create("dispatchGroupWait", DISPATCH_QUEUE_CONCURRENT);
+    dispatch_group_t group = dispatch_group_create();
+    
+    dispatch_group_async(group, queue, ^{
+        [NSThread sleepForTimeInterval:3];
+        NSLog(@"1");
+    });
+    dispatch_group_async(group, queue, ^{
+        NSLog(@"2");
+    });
+    
+    //over在上面执行完毕之后才会打印
+    dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
+    
+    NSLog(@"over");
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @end
