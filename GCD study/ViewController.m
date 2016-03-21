@@ -29,7 +29,9 @@
 //    [self dispatchBlockCancel];
 //    [self dispatchGroupDemo];
 //    [self dispatchGroupDemo2];
-    [self dispatchGroupWait];
+//    [self dispatchGroupWait];
+    
+    [self testNSOperation];
 }
 
 - (void)didReceiveMemoryWarning {
@@ -233,7 +235,7 @@
 }
 
 - (void)dispatchGroupDemo{
-    dispatch_queue_t concurrentQueue = dispatch_queue_create("dispatchGroupQueue", DISPATCH_QUEUE_CONCURRENT);
+    dispatch_queue_t concurrentQueue = dispatch_queue_create("dispatchGroupQueue", DISPATCH_QUEUE_SERIAL);
     dispatch_group_t group = dispatch_group_create();
     
     dispatch_group_async(group, concurrentQueue, ^{
@@ -263,7 +265,7 @@
 }
 
 - (void)dispatchGroupDemo2{
-    dispatch_queue_t queue = dispatch_queue_create("dispatchGroupDemo2", DISPATCH_QUEUE_CONCURRENT);
+    dispatch_queue_t queue = dispatch_queue_create("dispatchGroupDemo2", DISPATCH_QUEUE_SERIAL);
     dispatch_group_t group = dispatch_group_create();
     dispatch_group_async(group, queue, ^{
         [NSThread sleepForTimeInterval:3];
@@ -304,7 +306,36 @@
 
 
 
-
+- (void)testNSOperation {
+    NSOperationQueue *queue = [[NSOperationQueue alloc] init];
+    queue.maxConcurrentOperationCount = 1;
+    
+    NSBlockOperation *block1 = [NSBlockOperation blockOperationWithBlock:^{
+        [NSThread sleepForTimeInterval:2.f];
+        NSLog(@"1");
+    }];
+    
+    NSBlockOperation *block2 = [NSBlockOperation blockOperationWithBlock:^{
+        [NSThread sleepForTimeInterval:2.f];
+        NSLog(@"2");
+    }];
+    
+    NSBlockOperation *block3 = [NSBlockOperation blockOperationWithBlock:^{
+        [NSThread sleepForTimeInterval:2.f];
+        NSLog(@"3");
+    }];
+    
+    NSBlockOperation *block4 = [NSBlockOperation blockOperationWithBlock:^{
+        [NSThread sleepForTimeInterval:2.f];
+        NSLog(@"4");
+    }];
+    
+    [queue addOperations:@[block1,block2,block3,block4] waitUntilFinished:NO];
+    
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.f * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [queue cancelAllOperations];
+    });
+}
 
 
 
